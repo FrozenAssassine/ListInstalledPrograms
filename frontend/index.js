@@ -1,7 +1,7 @@
 
 function formatDate(dateString) {
-    if(dateString.includes(".") || dateString.length == 1)
-        return dateString;
+    if(!dateString || dateString.includes(".") || dateString.length == 1)
+        return !dateString ? "-" : dateString;
 
     const year = dateString.slice(0, 4);//year
     const month = dateString.slice(4, 6);//day
@@ -28,6 +28,7 @@ function Show(rawFileData){
             <td class='item_app'>${item.name}</td>
             <td class='item_version'>${item.version}</td>
             <td class='item_date'>${date}</td>
+            <td class='item_maintainer'>${item.maintainer}</td>
         </tr>`;
     };
     document.getElementById("tableBody").innerHTML = data;
@@ -38,7 +39,7 @@ function MakeData(lines) {
     lines.forEach(item => {
         const lineS = item.split(',');
         if (lineS.length >= 2) {
-            result.push({ name: lineS[0], version: lineS[1], date: lineS[2] });
+            result.push({ name: lineS[0], version: lineS[1], date: lineS[2], maintainer: lineS[3] });
         }
     });
     return result;
