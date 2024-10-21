@@ -41,69 +41,67 @@ class InstalledAppManager {
         $items = $this.getAllAppsFromRegistry()        
         $processedLines = $this.prepareChocoListData()
 
+        $processedLines = $processedLines | ForEach-Object {
+            if ($_.DisplayName) {
+                #uppercase first character of chocolatey package
+
+                $firstChar = $_.DisplayName[0].ToString().ToUpper()
+                $remainingChars = $_.DisplayName.Substring(1)
+                $_.DisplayName = $firstChar + $remainingChars
+            }
+            $_
+        }
+
         return $this.compareChoco($items, $processedLines)
     }
 
-    [InstalledApp[]] compareChoco([InstalledApp[]] $installedApps, [InstalledApp[]] $processedLines) {
-        $additionalApps = [System.Collections.Generic.List[InstalledApp]]::new()
+    [InstalledApp[]] compareChoco([InstalledApp[]] $installedApps, [InstalledApp[]] $chocoList) {
+        $mergedApps = @{}
 
-        #store the lines to reduce processing:
-        $lineSet = @{}
-        foreach ($line in $processedLines) {
-            $lineSet[$line.DisplayName.ToLower().Replace("-", "").Replace("_", "")] = $true
-        }
+        $apps = $chocoList + $installedApps
+        foreach ($app in $apps) {
+            $key = $app.DisplayName.ToLower().Replace("-", "").Replace("_", "")
 
-        foreach ($app in $installedApps) {
-            if ([string]::IsNullOrEmpty($app.DisplayName)) {
-                continue
-            }
-    
-            $lowerDisplayName = $app.DisplayName.ToLower().Replace("-", "").Replace("_", "").split(" ")[0]
-            
-            if ($lineSet.ContainsKey($lowerDisplayName)
-            ) {           
-                $app.Maintainer = "Chocolatey"
-                $lineSet.Remove($lowerDisplayName);
+            if (-not ($mergedApps.ContainsKey($key))) {
+                $mergedApps[$key] = $app
+                continue;
             }
 
-        }    
-
-
-        foreach ($notUsed in $lineSet.Keys) {
-            $additionalApps.Add([InstalledApp]::new($notUsed, "", "", "Chocolatey"))
         }
-
-        return $installedApps + $additionalApps.ToArray()
+        return $mergedApps.Values
     }
 
     [InstalledApp[]] prepareChocoListData() {
         #run the choco command + parse data into two lists
         $chocoOut = choco list
-        $lines = $chocoOut -split "`n"  
-        #skip the first and last line, because its the headline and end of the output:
-        $lines = $lines[1..($lines.Length - 2)]
-        
-        $res = $lines | ForEach-Object {
-            $splitted = $_.Split(" ")
-            [InstalledApp]::new($splitted[0], $splitted[1], "", "Chocolatey")
+        $lines = $chocoOut | Select-Object -Skip 1 | Select-Object -SkipLast 1
+        $pattern = '^(?<name>[a-zA-Z0-9.\-_]+) (?<version>[0-9][0-9a-zA-Z._]*)$'
+        $allMatches = @()
+
+        # Loop through each line and check for matches
+        foreach ($line in $lines) {
+            $match = [regex]::Match($line, $pattern)
+            if ($match.Success) {
+                $allMatches += $match
+            }
         }
         
-        return $res
+        return $matches | ForEach-Object {
+            $splitted = $_.Value.Split(" ")
+            [InstalledApp]::new($splitted[0], $splitted[1], "", "Chocolatey") 
+        }
     }
-
 }
 
-$manager = [InstalledAppManager]::new()
-
-$allApps = $manager.getCSV()
+$allApps = [InstalledAppManager]::new().getCSV()
 
 #export to csv
 $allApps | Export-Csv "finalList.plist" -NoTypeInformation
-    
+
 #add the device name
-$computerName = $env:COMPUTERNAME
+$computerName = $env:COMPUTERNAME + " | " + (Get-Date -Format "dd.MM.yyyy")
 $csvContent = Get-Content "finalList.plist"
 $newContent = @("$computerName") + $csvContent
 $newContent | Set-Content "finalList.plist"
-    
+
 "Done"
