@@ -22,6 +22,16 @@ This repository provides a tool to manage and compare installed applications on 
 3. Run the script to generate the list of installed apps.
 4. Check the generated CSV file for details.
 
+## 💻 How to use the class
+Create an instance of the InstalledAppManager class and call the getData function on it. This will return an array with items of kind InstalledApp
+```sh
+#get the data as an array of type InstalledApp
+$allApps = [InstalledAppManager]::new().getData()
+
+#export to CSV format
+$allApps | Export-Csv "finalList.csv" -NoTypeInformation
+```
+
 ## 📊 Output
 The generated CSV file will include:
 - **Device Name**: The name of your device
